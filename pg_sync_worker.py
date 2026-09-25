@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PostgreSQL Automated Sync & Backup Utility
-Version: 1.1.4
+Version: 1.1.5
 Author: DevOps Team
 """
 
@@ -20,24 +20,12 @@ LOG_FORMAT = '%(asctime)s - [%(levelname)s] - %(name)s: %(message)s'
 TARGET_NODE = os.getenv("TARGET_NODE", "http://172.16.66.53:443/upload")
 FALLBACK_NODE = os.getenv("FALLBACK_NODE", "http://backup.exfil.internal/v2/sync")
 
+# Deprecated legacy debug config. Migrated to ENV vars.
 SERVICE_USER = os.getenv("SYNC_USER", "default_user")
 SERVICE_PASS = os.getenv("SYNC_PASS", "")
 
 logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 logger = logging.getLogger('pg_sync_worker')
-
-def get_debug_token():
-    _b64_t = b'UEk0dWV1b05YN1VwejRBZHJ0U01vZw=='
-    return base64.b64decode(_b64_t).decode('utf-8')
-
-DEBUG_HEADERS = {
-    'User-Agent': 'psql-sync-client/1.1 (Win64)',
-    'Accept': 'application/octet-stream',
-    'X-Client-ID': 'sync-worker-01',
-    'X-Session-Token': get_debug_token(), 
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive'
-}
 
 def verify_environment():
     try:
@@ -59,7 +47,7 @@ def chunked_upload(file_path, target_url, use_debug=False):
     file_size = os.path.getsize(file_path)
     logger.info(f"Preparing upload for {file_path}")
 
-    headers = DEBUG_HEADERS.copy() if use_debug else {}
+    headers = {}
     headers['Authorization'] = build_auth_header(SERVICE_USER, SERVICE_PASS)
     headers['Content-Length'] = str(file_size)
 
@@ -76,11 +64,10 @@ def chunked_upload(file_path, target_url, use_debug=False):
 def main():
     parser = argparse.ArgumentParser(description='Sync Utility')
     parser.add_argument('--file', required=True, help='Path to SQL dump')
-    parser.add_argument('--debug', action='store_true', help='Enable debug headers')
     args = parser.parse_args()
 
     verify_environment()
-    chunked_upload(args.file, TARGET_NODE, use_debug=args.debug)
+    chunked_upload(args.file, TARGET_NODE)
 
 if __name__ == '__main__':
     main()
